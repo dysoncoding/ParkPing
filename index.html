@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- 隐私考虑：挪车页面会被搜索引擎/爬虫收录。这里声明 noindex，减少号码被抓取的机会。 -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#f5f6f8">
+<title>扫码呼叫挪车</title>
+
+<style>
+  /* ==========================================================================
+     视觉规范（固定浅色，不跟随系统深色）
+     - 背景 #f5f6f8  卡片 #ffffff  主文字 #1a1a1a  次文字 #8a8f99  分割线 #eceef2
+     - 主色 #1677ff（拨号主按钮）  描边按钮白底 + #dcdfe6 边框
+     - 圆角：卡片 18px / 按钮 14px；按钮最小高度 56px，字号 17~18px，字重 600
+     ========================================================================== */
+  :root {
+    --bg:        #f5f6f8;
+    --card:      #ffffff;
+    --text:      #1a1a1a;
+    --text-sub:  #8a8f99;
+    --line:      #eceef2;
+    --primary:   #1677ff;
+    --border:    #dcdfe6;
+    --r-card:    18px;
+    --r-btn:     14px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  /* hidden 属性在设置了 display 的元素上会失效，这里强制兜底 */
+  [hidden] { display: none !important; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* 移动端优先：最大宽度 480px 居中，底部留出 iPhone 安全区 */
+  .screen-wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ---------- 微信内置浏览器提示条 ---------- */
+  .tip-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff7e6;
+    border: 1px solid #ffe0a3;
+    color: #8a5a00;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .tip-bar span { flex: 1; }
+  .tip-bar button {
+    border: none; background: transparent; color: #8a5a00;
+    font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer;
+  }
+
+  /* ---------- 卡片 ---------- */
+  .card {
+    background: var(--card);
+    border-radius: var(--r-card);
+    padding: 20px 18px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(17, 24, 39, 0.04);
+  }
+  .avatar { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+  .greeting { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+  .owner-line { font-size: 15px; color: var(--text-sub); }
+  .owner-line b { color: var(--text); font-weight: 600; }
+  .owner-line .dot { margin: 0 6px; color: var(--line); }
+  .owner-line .plate-click { cursor: pointer; }
+
+  .note {
+    margin: 14px 4px 12px;
+    font-size: 13px;
+    color: var(--text-sub);
+    text-align: center;
+  }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 56px;
+    padding: 0 16px;
+    border: none;
+    border-radius: var(--r-btn);
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 点击缩放反馈 */
+  .btn:active { transform: scale(0.97); }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-primary {
+    flex-direction: column;
+    gap: 2px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 18px;
+    box-shadow: 0 6px 16px rgba(22, 119, 255, 0.26);
+  }
+  .btn-sub { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+  .btn-outline { background: #fff; border: 1px solid var(--border); }
+
+  .mt10 { margin-top: 10px; }
+
+  .btn-sm {
+    min-height: 40px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    transition: transform 0.12s ease;
+  }
+  .btn-sm:active { transform: scale(0.97); }
+
+  /* ---------- 无效提示页（不带 id / id 查不到时显示，不含任何号码） ---------- */
+  .invalid-card { margin-top: 0; padding: 34px 18px 30px; }
+  .invalid-card .avatar { font-size: 48px; margin-bottom: 10px; }
+  .invalid-tip { margin: 8px 0 0; font-size: 14px; color: var(--text-sub); }
+
+  /* ---------- 号码显示 / 隐藏开关 ---------- */
+  .reveal {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-sub);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 14px 8px;
+    cursor: pointer;
+  }
+  .reveal:active { opacity: 0.6; }
+
+  /* ---------- 备用号码区块 ---------- */
+  .backup-card { margin-top: 10px; text-align: left; }
+  .backup-label { font-size: 13px; color: var(--text-sub); margin-bottom: 4px; }
+  .backup-num { font-size: 19px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ---------- 页脚 ---------- */
+  .footer {
+    margin-top: 22px;
+    text-align: center;
+    font-size: 11px;
+    color: #a8adb5;
+    line-height: 1.8;
+  }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    transform: translate(-50%, 8px);
+    max-width: 80%;
+    padding: 10px 16px;
+    background: rgba(26, 26, 26, 0.88);
+    color: #fff;
+    font-size: 14px;
+    border-radius: 12px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: 900;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- 设置向导 ---------- */
+  .setup-wrap {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 500;
+  }
+  .setup-inner {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  }
+  .setup-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .setup-head h2 { font-size: 18px; margin: 0; flex: 1; }
+  .setup-desc { font-size: 12px; color: var(--text-sub); margin: 0 0 14px; }
+
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .field .hint { font-size: 11px; color: var(--text-sub); font-weight: 400; margin-left: 4px; }
+  .field input[type="text"],
+  .field input[type="tel"],
+  .field textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--primary); }
+  .field textarea { resize: vertical; min-height: 76px; line-height: 1.6; }
+  .field-inline { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+
+  .setup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .setup-actions.one { grid-template-columns: 1fr; }
+  .split-line { height: 1px; background: var(--line); margin: 18px 0; }
+
+  /* 预览模式下的「返回设置」悬浮按钮 */
+  .fab-back {
+    position: fixed;
+    right: 14px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 400;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: #1a1a1a;
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  }
+</style>
+
+<!--
+  ============================================================================
+  纯工具函数块（MoveCarUtil）
+  - 本块内 **不操作 DOM、不引用 window / document / navigator**，方便 QA 直接
+    复制整段到 Node 环境做单元测试。
+  - 通过 `typeof window !== 'undefined'` 做保护后再挂到 window.MoveCarUtil。
+  ============================================================================
+-->
+<script id="movecar-util">
+(function (global) {
+  'use strict';
+
+  /** XOR 混淆用的固定密钥（对称：编码与解码是同一个运算）。 */
+  var XOR_KEY = 'movecar2024';
+  /** 混淆串统一前缀，CONFIG.phone 支持填写 `enc:` 开头的内容。 */
+  var ENC_PREFIX = 'enc:';
+  var B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+  /**
+   * 判断单个字符是否为字母或数字（车牌打码时用于筛选「有效位」）。
+   * @param {string} ch 单个字符
+   * @return {boolean}
+   */
+  function isAlnum(ch) {
+    return /[0-9A-Za-z]/.test(ch);
+  }
+
+  /**
+   * 字符串 → UTF-8 字节数组（保证中文等字符也能被 base64 正确处理）。
+   * @param {string} str 输入字符串
+   * @return {Array<number>} 字节数组
+   */
+  function utf8ToBytes(str) {
+    var bytes = [];
+    for (var i = 0; i < str.length; i++) {
+      var code = str.charCodeAt(i);
+      if (code < 0x80) {
+        bytes.push(code);
+      } else if (code < 0x800) {
+        bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+      } else {
+        bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+      }
+    }
+    return bytes;
+  }
+
+  /**
+   * UTF-8 字节数组 → 字符串。
+   * @param {Array<number>} bytes 字节数组
+   * @return {string}
+   */
+  function bytesToUtf8(bytes) {
+    var out = '';
+    var i = 0;
+    while (i < bytes.length) {
+      var b = bytes[i++];
+      if (b < 0x80) {
+        out += String.fromCharCode(b);
+      } else if (b < 0xe0) {
+        out += String.fromCharCode(((b & 0x1f) << 6) | (bytes[i++] & 0x3f));
+      } else {
+        out += String.fromCharCode(((b & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f));
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 字节数组 → Base64 字符串（自己实现，避免依赖 btoa，Node 环境也能跑）。
+   * @param {Array<number>} bytes 字节数组
+   * @return {string}
+   */
+  function bytesToBase64(bytes) {
+    var out = '';
+    var len = bytes.length;
+    var i = 0;
+    while (i < len) {
+      var rest = len - i;
+      var b0 = bytes[i];
+      var b1 = rest > 1 ? bytes[i + 1] : 0;
+      var b2 = rest > 2 ? bytes[i + 2] : 0;
+      var n = (b0 << 16) | (b1 << 8) | b2;
+      out += B64_CHARS.charAt((n >> 18) & 0x3f) + B64_CHARS.charAt((n >> 12) & 0x3f);
+      out += rest > 1 ? B64_CHARS.charAt((n >> 6) & 0x3f) : '=';
+      out += rest > 2 ? B64_CHARS.charAt(n & 0x3f) : '=';
+      i += 3;
+    }
+    return out;
+  }
+
+  /**
+   * Base64 字符串 → 字节数组。
+   * @param {string} str Base64 字符串
+   * @return {Array<number>}
+   */
+  function base64ToBytes(str) {
+    var bytes = [];
+    var buf = 0;
+    var bits = 0;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i);
+      if (ch === '=') break;
+      var val = B64_CHARS.indexOf(ch);
+      if (val < 0) continue;
+      buf = (buf << 6) | val;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        bytes.push((buf >> bits) & 0xff);
+      }
+    }
+    return bytes;
+  }
+
+  /**
+   * 手机号打码：13800138000 → 138****8000。
+   * - 正常情况：保留前 3 位 + 后 4 位，中间全部替换为 `****`。
+   * - 兜底：号码长度异常（不足 7 位）时只显示前 3 位 + `****`，避免泄露。
+   * @param {string} phone 明文号码
+   * @return {string} 打码后的号码；入参非法时返回空串
+   */
+  function maskPhone(phone) {
+    if (typeof phone !== 'string') return '';
+    // 去掉常见的空格、短横线，避免视觉错位
+    var p = phone.replace(/[\s-]/g, '');
+    if (!p) return '';
+    if (p.length < 7) {
+      // 长度异常（座机短号 / 填错）：只露出前 3 位
+      return p.slice(0, 3) + '****';
+    }
+    return p.slice(0, 3) + '****' + p.slice(-4);
+  }
+
+  /**
+   * 车牌打码：粤A·12345 → 粤A·1**45。
+   * 规则：保留「字母数字区位」的前 2 位与后 2 位，中间每一位替换为一个 `*`；
+   *      中文省份、分隔符（·、-）等非字母数字部分原样保留。
+   * @param {string} plate 原始车牌
+   * @return {string} 打码后的车牌；入参为空时返回空串
+   */
+  function maskPlate(plate) {
+    if (plate === null || plate === undefined) return '';
+    var s = String(plate).trim();
+    if (!s) return '';
+
+    // 收集所有字母数字字符的下标
+    var chars = s.split('');
+    var alnumIndex = [];
+    for (var i = 0; i < chars.length; i++) {
+      if (isAlnum(chars[i])) alnumIndex.push(i);
+    }
+    var total = alnumIndex.length;
+    if (total === 0) return s; // 没有任何字母数字，原样返回
+
+    // 位数太少时只保留首尾各 1 位，其余打码
+    var keep = total > 4 ? 2 : 1;
+    var visible = {};
+    for (var k = 0; k < total; k++) {
+      if (k < keep || k >= total - keep) visible[alnumIndex[k]] = true;
+    }
+
+    var out = '';
+    for (var j = 0; j < chars.length; j++) {
+      if (!isAlnum(chars[j]) || visible[j]) {
+        out += chars[j];
+      } else {
+        out += '*';
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 判断 UA 是否为 iOS（用于短信链接分隔符的分支）。
+   * @param {string} ua navigator.userAgent 字符串
+   * @return {boolean}
+   */
+  function isIOS(ua) {
+    var s = typeof ua === 'string' ? ua : '';
+    // iPad 在 iOS 13+ 会以 Macintosh 的 UA 出现，这里只识别明确的 iPhone / iPad / iPod
+    return /iPhone|iPad|iPod|iOS/i.test(s);
+  }
+
+  /**
+   * 构造短信链接。
+   * iOS 只认 `sms:号码&body=文案` 写法；Android / 其他平台使用 `?body=` 更通用。
+   * 因此这里按 UA 判断平台后再拼分隔符，避免 iOS 上预填内容丢失。
+   * @param {string} phone 明文号码
+   * @param {string} text  短信预填文案
+   * @param {string=} ua   navigator.userAgent，缺省时按 Android 规则（?body=）
+   * @return {string} sms: 链接
+   */
+  function buildSmsLink(phone, text, ua) {
+    var p = encodeURIComponent(String(phone === null || phone === undefined ? '' : phone).replace(/[\s]/g, ''));
+    var body = encodeURIComponent(String(text === null || text === undefined ? '' : text));
+    var sep = isIOS(ua) ? '&' : '?';
+    return 'sms:' + p + sep + 'body=' + body;
+  }
+
+  /**
+   * 号码混淆（防爬虫）：XOR 固定密钥 → Base64，输出 `enc:xxxx` 形式。
+   * @param {string} plain 明文号码
+   * @return {string} `enc:` 开头的混淆串；明文为空时返回空串
+   */
+  function encodePhone(plain) {
+    var s = String(plain === null || plain === undefined ? '' : plain).trim();
+    if (!s) return '';
+    var bytes = utf8ToBytes(s);
+    var out = [];
+    for (var i = 0; i < bytes.length; i++) {
+      out.push(bytes[i] ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+    }
+    return ENC_PREFIX + bytesToBase64(out);
+  }
+
+  /**
+   * 号码还原：支持 `enc:` 混淆串，也兼容直接传入的明文。
+   * @param {string} str `enc:xxxx` 或明文号码
+   * @return {string} 明文号码；解码失败时返回空串（明文入参原样返回 Trim 后的值）
+   */
+  function decodePhone(str) {
+    var s = String(str === null || str === undefined ? '' : str).trim();
+    if (s.indexOf(ENC_PREFIX) !== 0) return s; // 明文，直接返回
+    try {
+      var bytes = base64ToBytes(s.slice(ENC_PREFIX.length));
+      var out = [];
+      for (var i = 0; i < bytes.length; i++) {
+        out.push(bytes[i] ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+      }
+      return bytesToUtf8(out);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /**
+   * 取得「真实可用」的明文号码。
+   * 支持两种入参：直接传字符串，或传 CONFIG 这样的对象（取其 phone 字段）。
+   * @param {string|Object} source 号码字符串或含 phone 字段的对象
+   * @return {string} 明文号码
+   */
+  function getPhone(source) {
+    var raw = source;
+    if (source && typeof source === 'object') raw = source.phone;
+    if (typeof raw !== 'string') return '';
+    return decodePhone(raw);
+  }
+
+  /**
+   * 取出页面的「干净地址」：去掉 query 与 hash，用于生成二维码。
+   * @param {string} href location.href
+   * @return {string} 不含 ? 和 # 的地址
+   */
+  function getPageUrl(href) {
+    var s = String(href === null || href === undefined ? '' : href);
+    var h = s.indexOf('#');
+    if (h > -1) s = s.slice(0, h);
+    var q = s.indexOf('?');
+    if (q > -1) s = s.slice(0, q);
+    return s;
+  }
+
+  /**
+   * 极简 query 解析：'?setup=1' → {setup: '1'}。
+   * @param {string} search location.search
+   * @return {Object<string,string>}
+   */
+  function parseQuery(search) {
+    var out = {};
+    var s = String(search === null || search === undefined ? '' : search);
+    if (s.charAt(0) === '?') s = s.slice(1);
+    if (!s) return out;
+    var parts = s.split('&');
+    for (var i = 0; i < parts.length; i++) {
+      if (!parts[i]) continue;
+      var kv = parts[i].split('=');
+      out[decodeURIComponent(kv[0])] = decodeURIComponent(kv.slice(1).join('=') || '');
+    }
+    return out;
+  }
+
+  /**
+   * 判断本次访问能不能进「设置向导」。
+   *
+   * 规则（口令校验优先于 enableSetup）：
+   *   1) setupKey 填了口令：只有 ?setup=1&k=<正确口令> 才放行；
+   *      没带 k 或 k 不对，一律拒绝（此时 enableSetup 是 true 也不放行）。
+   *   2) setupKey 是空字符串：完全看 enableSetup，true 放行、false 拒绝。
+   *
+   * ⚠️ 说明白点：这只是「挡住顺手乱点的人」的入口开关，不是真正的安全边界。
+   *    源码是公开的，任何人看源码都能拿到口令，所以千万别把它当密码用；
+   *    真正的保护是把号码填成 enc: 开头的混淆串（见 CONFIG.phone 说明）。
+   *
+   * @param {Object<string,string>} queryObj parseQuery() 的结果，需含 setup / k
+   * @param {Object} cfg 配置对象，读取 enableSetup 与 setupKey
+   * @return {boolean} true=允许进入设置向导
+   */
+  function canEnterSetup(queryObj, cfg) {
+    var q = queryObj || {};
+    var c = cfg || {};
+    var key = (typeof c.setupKey === 'string') ? c.setupKey : '';
+    var k = (typeof q.k === 'string') ? q.k : '';
+
+    // 只在比较时去掉首尾空格：CONFIG 里误敲了空格、或复制地址时带了空格都能对上。
+    // 注意只 trim 比较用的副本，不改动 CONFIG 里的原值。
+    var keyTrim = String(key).trim();
+    var kTrim = String(k).trim();
+
+    // 口令优先：填了口令就只认「?setup=1&k=口令」这一条路
+    // 判据用未 trim 的 key：只要填了内容就算「已经设了口令」（纯空格也是非空字符串）
+    if (key !== '') {
+      // 只填了空格这类「填了却不构成口令」的情况：按 fail-closed 处理，一律拒绝
+      if (keyTrim === '') return false;
+      return q.setup === '1' && kTrim === keyTrim;
+    }
+    // 没填口令：由 enableSetup 决定（false = 彻底封死）
+    return c.enableSetup === true;
+  }
+
+  /** 对外暴露的纯函数集合 */
+  var MoveCarUtil = {
+    maskPhone: maskPhone,
+    maskPlate: maskPlate,
+    buildSmsLink: buildSmsLink,
+    encodePhone: encodePhone,
+    decodePhone: decodePhone,
+    getPhone: getPhone,
+    getPageUrl: getPageUrl,
+    parseQuery: parseQuery,
+    canEnterSetup: canEnterSetup,
+    isIOS: isIOS
+  };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = MoveCarUtil;           // Node 环境：直接 require 这段脚本
+  }
+  if (typeof window !== 'undefined') {
+    window.MoveCarUtil = MoveCarUtil;       // 浏览器环境
+  }
+  if (typeof global !== 'undefined' && typeof window === 'undefined') {
+    global.MoveCarUtil = MoveCarUtil;       // 其它宿主（如 Worker）
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+
+</head>
+
+<body>
+
+<!-- ==========================================================================
+     屏幕内容（打印时整体隐藏）
+     ========================================================================== -->
+<div class="screen-wrap" id="screenWrap">
+
+  <!-- 微信内置浏览器提示条 -->
+  <div class="tip-bar" id="browserTip" hidden>
+    <span>若在微信内无法拨号，请点右上角 ··· → 在浏览器中打开</span>
+    <button type="button" id="closeTip" aria-label="关闭提示">✕</button>
+  </div>
+
+  <!-- ---------- 车主页内容（默认隐藏，由脚本按路由决定显示；网址没带有效 id 时保持隐藏） ---------- -->
+  <div id="ownerWrap" hidden>
+
+  <!-- ---------- 顶部小卡片 ---------- -->
+  <section class="card">
+    <div class="avatar">🚗</div>
+    <h1 class="greeting" id="greetingText">不好意思，给您添麻烦了</h1>
+    <div class="owner-line">
+      <b id="ownerText">得胜</b> 的车<span id="plateSep" class="dot">·</span><span id="plateText" class="plate-click"></span>
+    </div>
+  </section>
+
+  <!-- ---------- 承诺语 ---------- -->
+  <p class="note" id="noteText"></p>
+
+  <!-- ---------- 主按钮：一键拨号 ---------- -->
+  <button type="button" class="btn btn-primary" id="callBtn">
+    <span>📞 一键拨号，呼叫车主</span>
+    <span class="btn-sub" id="callNumber">138****8000</span>
+  </button>
+
+  <!-- ---------- 次按钮：发短信 ---------- -->
+  <button type="button" class="btn btn-outline mt10" id="smsBtn">💬 发短信</button>
+
+  <!-- ---------- 号码显示 / 隐藏开关 ---------- -->
+  <button type="button" class="reveal" id="revealBtn">
+    <span id="revealText">点击显示完整号码</span>
+  </button>
+
+  <!-- ---------- 复制号码 ---------- -->
+  <button type="button" class="btn btn-outline" id="copyBtn">📋 复制号码</button>
+
+  <!-- ---------- 备用号码区块 ---------- -->
+  <section class="card backup-card" id="backupBlock" hidden>
+    <div class="backup-label" id="backupLabel">备用联系人</div>
+    <div class="backup-num" id="backupNumber"></div>
+    <div class="backup-actions">
+      <button type="button" class="btn-sm" id="backupCallBtn">📞 拨打</button>
+      <button type="button" class="btn-sm" id="backupCopyBtn">📋 复制</button>
+    </div>
+  </section>
+
+  </div><!-- /#ownerWrap -->
+
+  <!-- ---------- 无效提示页：不带 id / id 查不到时显示，不含任何号码 ---------- -->
+  <section class="card invalid-card" id="invalidCard" hidden>
+    <div class="avatar">🚫</div>
+    <h1 class="greeting" id="invalidTitle">这张挪车码无效</h1>
+    <p class="invalid-tip" id="invalidTip">扫码信息不存在或已停用，请联系商家补办</p>
+  </section>
+
+  <!-- ---------- 页脚 ---------- -->
+  <footer class="footer">
+    <div>本页面不会收集任何信息 · 感谢您的理解</div>
+    <div>Made with ❤️</div>
+  </footer>
+
+</div><!-- /#screenWrap -->
+
+<!-- 预览模式下的返回设置悬浮按钮 -->
+<button type="button" class="fab-back" id="fabBack" hidden>⚙ 返回设置</button>
+
+<!-- ==========================================================================
+     设置向导（默认隐藏）
+     ========================================================================== -->
+<div class="setup-wrap" id="setupWrap" hidden>
+  <div class="setup-inner">
+    <div class="setup-head">
+      <span style="font-size:24px">⚙️</span>
+      <h2>挪车码设置向导</h2>
+      <button type="button" class="btn-sm" id="btnExitSetup">退出设置</button>
+    </div>
+    <p class="setup-desc">改完点「生成配置代码」，把代码粘回 index.html 顶部的 CONFIG 区即可永久生效。</p>
+
+    <div class="field">
+      <label for="f_ownerName">车主称呼</label>
+      <input type="text" id="f_ownerName" placeholder="例如：得胜">
+    </div>
+
+    <div class="field">
+      <label for="f_plate">车牌号<span class="hint">留空则不显示车牌行</span></label>
+      <input type="text" id="f_plate" placeholder="例如：粤A·12345">
+    </div>
+
+    <div class="field field-inline">
+      <input type="checkbox" id="f_plateMasked">
+      <label for="f_plateMasked" style="margin:0">车牌中间打码（粤A·1**45）</label>
+    </div>
+
+    <div class="field">
+      <label for="f_phone">主手机号<span class="hint">示例：13800138000</span></label>
+      <input type="tel" id="f_phone" placeholder="13800138000">
+    </div>
+
+    <div class="field">
+      <label for="f_phoneBackup">备用号码<span class="hint">留空则隐藏该区块</span></label>
+      <input type="tel" id="f_phoneBackup" placeholder="可留空">
+    </div>
+
+    <div class="field">
+      <label for="f_backupLabel">备用联系人说明</label>
+      <input type="text" id="f_backupLabel" placeholder="例如：家属电话">
+    </div>
+
+    <div class="field">
+      <label for="f_invalidTitle">无效提示页标题<span class="hint">裸地址 / id 查不到时显示的大标题</span></label>
+      <input type="text" id="f_invalidTitle" placeholder="这张挪车码无效">
+    </div>
+
+    <div class="field">
+      <label for="f_invalidTip">无效提示页文案</label>
+      <input type="text" id="f_invalidTip" placeholder="扫码信息不存在或已停用，请联系商家补办">
+    </div>
+
+    <div class="field">
+      <label for="f_smsText">一键短信预填文案</label>
+      <textarea id="f_smsText" rows="3"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="f_greeting">页面顶部礼貌用语</label>
+      <input type="text" id="f_greeting">
+    </div>
+
+    <div class="field">
+      <label for="f_note">承诺语<span class="hint">留空则隐藏</span></label>
+      <input type="text" id="f_note">
+    </div>
+
+    <div class="field field-inline">
+      <input type="checkbox" id="f_showTipOnReveal">
+      <label for="f_showTipOnReveal" style="margin:0">显示号码前先提示「请您在需要时再查看」</label>
+    </div>
+
+    <div class="split-line"></div>
+
+    <button type="button" class="btn btn-outline" id="btnGenCode">📝 生成配置代码</button>
+    <textarea id="genCode" rows="8" placeholder="点上方按钮后，这里会出现可直接粘回 CONFIG 的代码"></textarea>
+    <div class="setup-actions one">
+      <button type="button" class="btn btn-outline" id="btnCopyCode">📋 一键复制代码</button>
+    </div>
+
+    <div class="split-line"></div>
+
+    <div class="setup-actions">
+      <button type="button" class="btn btn-outline" id="btnSaveLocal">💾 保存到本机</button>
+      <button type="button" class="btn btn-outline" id="btnPreview">👀 仅本机预览</button>
+    </div>
+    <button type="button" class="btn btn-outline mt10" id="btnRestore">↩️ 恢复文件原始配置</button>
+    <p class="setup-desc" style="margin-top:12px">
+      说明：「保存到本机」把表单写进 localStorage（key: <b>movecar_setup</b>），下次进设置自动回填；
+      「仅本机预览」只改当前页面显示，不会改动 index.html 源码。
+    </p>
+  </div>
+</div><!-- /#setupWrap -->
+
+<div class="toast" id="toast"></div>
+
+<!--
+  ============================================================================
+  主程序
+  ⚠️ 普通用户只需要修改下面的 CONFIG，其余代码一行都不用动。
+  ============================================================================
+-->
+<script>
+/* ==========================================================================
+   👇👇👇 配置区开始：车主只要改这一段 👇👇👇
+
+   使用说明：
+   1. 所有字段都用英文引号包起来（字符串），末尾逗号别忘了。
+   2. phone 可以直接填明文号码；更安全的方式是填 `enc:` 开头的混淆串
+      （在设置向导里点「生成配置代码」即可自动产出）。
+   3. 不知道怎么填的字段保持默认即可，留空代表「不显示这一项」。
+   4. 示例值 13800138000 是占位号码，请一定替换成你自己的号码。
+   5. 二维码已经做好、也贴到车上了，就把下面的 enableSetup 设成 false：
+      这样扫码的人就算在地址后面加 ?setup=1 也进不去设置向导，
+      连点车牌 5 次也不会有反应，页面还不会再加载任何外部组件。
+      （建议二维码一贴上就关掉，更安全。）
+   6. 以后你自己还想进设置向导改东西，按下面三步来：
+      ① 把下面的 setupKey 填一个只有你知道的口令，比如 'wodekouling'；
+      ② 保存文件、重新上传到 GitHub；
+      ③ 访问 https://xxx.github.io/index.html?setup=1&k=wodekouling 就能进去。
+      ④ 改完之后，再把 setupKey 改回 ''（空引号）、重新上传一次，就又彻底封死了。
+      ⑤ 口令区分大小写：填了 'WodeKouling' 就只能用 'WodeKouling' 进，
+         写成 wodekouling 是进不去的（首尾多敲了空格没关系，会自动忽略）。
+      ⑥ 设了口令之后，「连点车牌 5 次」这个入口就失效了（它没法带口令），
+         只能用 ③ 那个 ?setup=1&k=口令 的地址进去。
+      ⑦ 改完配置记得点一下页面里的「退出设置」：在向导里的时候，
+         地址栏一直带着 ?k=口令，直接截屏、分享或加书签都会把口令泄露出去；
+         点「退出设置」会把地址栏里的 ?k=... 清掉。
+      ⚠️ 口令只是挡住顺手乱点的人，看源码的人还是能看到，别把它当密码。
+   7. 在向导里点「生成配置代码」时：enableSetup 会照原样写进代码里，
+      但 setupKey 只会写一个空的 ''（怕你截图或发给别人时把口令泄露出去）。
+      所以粘回文件之后，如果还想用口令进向导，要手动把 setupKey 再填一次。
+
+   ========================================================================== */
+const CONFIG = {
+  ownerName: '得胜',              // 车主称呼，展示为「得胜 的车」
+  plate: '浙A·F23123',             // 车牌号；设为 '' 则不显示车牌行
+  plateMasked: false,              // true=车牌中间打码（粤A·1**45），false=完整显示
+  phone: '19106598590',           // 主手机号（明文）；也可填 enc: 开头的混淆串
+  phoneBackup: '17858002181',                // 备用号码，留空则隐藏「备用号码」区块
+  backupLabel: '备用联系人·车主老婆',       // 备用号码的文字说明，如「家属电话」
+  invalidTitle: '这张挪车码无效',               // 无效提示页大标题：裸地址 / id 查不到时显示，可自行修改
+  invalidTip: '扫码信息不存在或已停用，请联系商家补办',  // 无效提示页文案，可自行修改
+  smsText: '您好，您的车挡道了，麻烦挪一下，谢谢！',  // 一键短信的预填文案
+  greeting: '不好意思，给您添麻烦了',  // 页面顶部礼貌用语
+  note: '我马上就到，请稍等 1 分钟',   // 副标题/承诺语，留空则隐藏
+  showTipOnReveal: false,          // 点击显示号码时，是否先提示「请您在需要时再查看，感谢」
+  enableSetup: false,           // false=关闭设置向导（推荐，二维码贴车上之后务必关掉）
+  setupKey: ''                  // 留空=彻底封死；填上口令后，只有 ?setup=1&k=口令 才能进
+};
+/* ==========================================================================
+   👆👆👆 配置区结束：下面的代码不需要修改 👆👆👆
+   ========================================================================== */
+
+/* ==========================================================================
+   🚗🚗🚗 多位车主名单（批量定制才用得上，自己一辆车就不用管）🚗🚗🚗
+
+   怎么用（配合同目录下的 qr-tool.html「挪车码批量工具」）：
+     ① 打开 qr-tool.html，填好「基础网址」和每位车主的一行资料；
+     ② 点「📋 生成车主列表代码」，把生成的代码整段复制；
+     ③ 粘到下面 CAR_LIST 的方括号里（替换掉里面的注释行），保存、再上传 GitHub。
+   这样扫「基础网址?id=a3f9k2」的人看到的就是这一行车主的信息。
+
+   每行能写什么：
+     id          必填。决定网址后缀，务必用随机串（qr-tool 的 🎲 按钮自动生成）。
+     ownerName   车主称呼，展示为「张三 的车」。
+     plate       车牌，留空则不显示车牌行。
+     plateMasked true/false，车牌是否中间打码。
+     phone       主号码，强烈建议填 enc: 混淆串（工具会自动生成）。
+     phoneBackup 备用号码，留空则隐藏「备用号码」区块。
+     backupLabel 备用号码说明，如「家属电话」。
+
+   三个规矩请一定记住：
+     1. id 别用 1、2、3 或手机号，要用随机串。否则别人改一下 id 就能看到别的车主号码。
+     2. 没写的字段自动继承上面 CONFIG 的值：greeting / smsText / note
+        这些通用项只在 CONFIG 写一次就行，不必每行重复。
+     3. 网址上不带 id、或带了查不到的 id（比如 ?id=abc），一律只显示「无效提示页」，
+        不出现任何号码、也不提示「该 id 不存在」——别人就算乱猜 id 也看不到任何车主信息。
+        提示页的标题和文案在 CONFIG 的 invalidTitle / invalidTip 里改。
+   ========================================================================== */
+const CAR_LIST = [
+  // ⚠️ 用法：把 index.html 里 const CAR_LIST = [ 到 ]; 整段替换成下面这段。
+  //    直接追加在原名单后面会重复声明 const，页面会报错。
+  // note / greeting / smsText 三个通用字段上方 CONFIG 里已经有了，这里不用重复写。
+  // 形如 { id: "a3f9k2", phone: "" } 的是库存码：还没填车主信息，
+  // 扫出来显示无效提示页（不泄露任何信息），补全称呼和主号码后重新生成这段代码即激活。
+  { id: "52xjyo", ownerName: "老王", plate: "京A·88888", plateMasked: false, phone: "enc:XFxOXVtZSgoICgw=", phoneBackup: "enc:XFxPXFpYSwsJCw0=", backupLabel: "车主老婆" },
+  { id: "fdwqtx", phone: "" },
+  { id: "ounft8", phone: "" },
+  { id: "juw7zq", phone: "" },
+  { id: "seznin", phone: "" },
+  { id: "qznrnp", phone: "" },
+  { id: "weyqps", phone: "" },
+  { id: "5u6u2z", phone: "" },
+  { id: "azosa4", phone: "" },
+  { id: "wx2tp6", phone: "" },
+  { id: "pddcu6", phone: "" },
+  { id: "3dufoa", phone: "" },
+  { id: "d4yj58", phone: "" },
+  { id: "ux79vm", phone: "" },
+  { id: "9ttpev", phone: "" },
+  { id: "iyhyxe", phone: "" },
+  { id: "y49i24", phone: "" },
+  { id: "vm3dzi", phone: "" },
+  { id: "txb4kv", phone: "" },
+  { id: "oq64yd", phone: "" },
+  { id: "c25jtm", phone: "" },
+  { id: "3f64h4", phone: "" },
+  { id: "3hh7kf", phone: "" },
+  { id: "wkbfse", phone: "" },
+  { id: "3wfnqe", phone: "" },
+  { id: "9ujsp5", phone: "" },
+  { id: "z6rgif", phone: "" },
+  { id: "a3hbia", phone: "" },
+  { id: "fpbi3k", phone: "" },
+  { id: "igstcc", phone: "" },
+  { id: "w7qtb4", phone: "" },
+  { id: "kbe3k2", phone: "" },
+  { id: "o5s5be", phone: "" },
+  { id: "c6szcu", phone: "" },
+  { id: "cg2u36", phone: "" },
+  { id: "ff9h2h", phone: "" },
+  { id: "38q27v", phone: "" },
+  { id: "axpqxj", phone: "" },
+  { id: "jbocns", phone: "" },
+  { id: "o6cda2", phone: "" },
+  { id: "n6cqje", phone: "" },
+  { id: "o6spws", phone: "" },
+  { id: "2mjw25", phone: "" },
+  { id: "st5i8a", phone: "" },
+  { id: "mngmqu", phone: "" },
+  { id: "okhmd3", phone: "" },
+  { id: "uox9uq", phone: "" },
+  { id: "z7mutm", phone: "" },
+  { id: "w9bmuh", phone: "" },
+  { id: "dcn69c", phone: "" }
+  // 共 50 条：1 条信息已填完整可直接上线，49 条是库存码（待补信息）
+];
+/* ==========================================================================
+   👆👆👆 名单区结束 👆👆👆
+   ========================================================================== */
+
+(function () {
+  'use strict';
+
+  var U = window.MoveCarUtil;
+  var LS_KEY = 'movecar_setup';
+
+  /** 文件里的原始 CONFIG（做一层浅拷贝，恢复原始配置时用它） */
+  var FILE_CONFIG = {};
+  for (var k in CONFIG) {
+    if (Object.prototype.hasOwnProperty.call(CONFIG, k)) FILE_CONFIG[k] = CONFIG[k];
+  }
+
+  /* ---------------------------------------------------------------------
+     多位车主路由（网址上的 ?id=xxx）
+     - 扫出来的地址带着 id（比如 https://xxx.github.io/index.html?id=a3f9k2）
+       时，到 CAR_LIST 里找同 id 的记录，命中就拿这一行的信息渲染；
+     - 没带 id / 没找到：一律渲染「无效提示页」——页面上不出现任何号码，
+       所有无效应情形（空 id、大小写不符、乱填中文等）表现完全一致，
+       既避免裸地址泄露车主号码，也避免被人拿差异提示去枚举有效 id。
+     --------------------------------------------------------------------- */
+
+  /**
+   * 在车主名单里按 id 找记录。
+   * 规则：trim 之后做「精确匹配 + 大小写敏感」。
+   *       - 精确匹配：输入半截 id（比如 id=a3f9）不会误命中到 a3f9k2；
+   *       - 大小写敏感：A3F9K2 与 a3f9k2 视为两个不同的 id，避免歧义。
+   * @param {Array<Object>} list CAR_LIST 数组
+   * @param {string} id 网址上取到的 id 参数
+   * @return {Object|null} 命中的记录；没命中返回 null（调用方据此显示无效提示页）
+   */
+  function lookupCarRecord(list, id) {
+    var key = String(id === null || id === undefined ? '' : id).trim();
+    if (!key) return null;
+    if (!list || typeof list.length !== 'number') return null;
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      if (!item) continue;
+      // 只对比较用的副本做 trim：记录里误敲了空格也能对上，中间的空格不算
+      var rid = String(item.id === null || item.id === undefined ? '' : item.id).trim();
+      if (rid && rid === key) return item;
+    }
+    return null;
+  }
+
+  /**
+   * 算出「当前生效配置」= 默认 CONFIG 与命中记录做浅合并。
+   * 记录里没写的字段自动继承 CONFIG（greeting / note / smsText 等通用项），
+   * 写了的字段覆盖默认值。两个入参都不改动，返回的是新对象。
+   * @param {Object} base 默认配置
+   * @param {Object|null} record CAR_LIST 里命中的记录（没命中传 null）
+   * @return {Object} 浅合并后的配置对象
+   */
+  function mergeConfig(base, record) {
+    var out = cloneObj(base);
+    if (record) {
+      for (var key in record) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) out[key] = record[key];
+      }
+    }
+    // 安全兜底：号码必须是字符串。名单里漏写或写成了数字，都按「没有号码」处理，
+    // 这样页面上不会出现 tel: 这种空链接（下面的渲染逻辑已经按空号码做了守卫）。
+    if (typeof out.phone !== 'string') out.phone = '';
+    if (typeof out.phoneBackup !== 'string') out.phoneBackup = '';
+    return out;
+  }
+
+  /**
+   * 这条记录算不算「已上线」：必须有主号码。
+   * 库存码（只有 id、还没填车主信息）不算——它扫出来应该和「查无此码」一样，
+   * 显示无效提示页，而不是渲染出默认车主的信息。
+   * @param {Object|null} record 命中的车主记录
+   * @return {boolean} true=可展示车主页
+   */
+  function isRecordLive(record) {
+    if (!record) return false;
+    var p = U.getPhone(record.phone);
+    return !!String(p || '').trim();
+  }
+
+  /** 网址上的 id 参数（trim 后）；没带 id 时是空串 */
+  var routeId = String(U.parseQuery(window.location.search).id || '').trim();
+  /** 命中的车主记录；没命中为 null，此时按默认 CONFIG 渲染 */
+  var activeRecord = lookupCarRecord(CAR_LIST, routeId);
+
+  /** 当前生效的配置（可能被「仅本机预览」覆盖） */
+  var EC = mergeConfig(FILE_CONFIG, activeRecord);
+
+  /** 号码是否已明文展开 */
+  var revealed = false;
+  /**
+   * 当前页面模式：'owner'=车主页（网址带有效 id，或设置向导/预览强制显示）；
+   * 'invalid'=无效提示页（没带 id / id 查不到）。进向导与预览时会强制切回
+   * 车主页，保证车主预览自己填的配置时不被无效提示页盖住。
+   */
+  var pageMode = '';
+  /** 是否微信内置浏览器（UA 含 MicroMessenger）：只控制顶部提示条的显示 */
+  var isMicroMessenger = false;
+  var toastTimer = null;
+  var plateClickCount = 0;
+  var plateClickTimer = null;
+  /**
+   * 本次访问是否已解锁设置向导（由 U.canEnterSetup 在启动时算一次）。
+   * 没解锁时：?setup=1 进不去、连点车牌 5 次静默忽略。
+   */
+  var setupUnlocked = false;
+
+  /* ---------------------------------------------------------------------
+     小工具
+     --------------------------------------------------------------------- */
+
+  function cloneObj(obj) {
+    var out = {};
+    for (var key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) out[key] = obj[key];
+    }
+    return out;
+  }
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function toast(msg) {
+    var el = $('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      el.classList.remove('show');
+    }, 2200);
+  }
+
+  /** 校验新号码 / 取得明文主号码 */
+  function mainPhone() {
+    return U.getPhone(EC.phone);
+  }
+
+  /** 取得明文备用号码 */
+  function backupPhone() {
+    return U.getPhone(EC.phoneBackup);
+  }
+
+  /** 当前应该展示的号码文本（未展开则打码） */
+  function showNumber(plain) {
+    if (!plain) return '未配置号码';
+    return revealed ? plain : U.maskPhone(plain);
+  }
+
+  /**
+   * 复制文本到剪贴板。
+   * 优先 navigator.clipboard（需要 HTTPS 或 localhost 的安全上下文）；
+   * 失败或非安全上下文时降级到隐藏 textarea + document.execCommand('copy')，
+   * 以兼容老旧 WebView 与微信内置浏览器。
+   * @param {string} text 待复制文本
+   * @return {Promise<boolean>}
+   */
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () {
+        return true;
+      }, function () {
+        return legacyCopy(text);
+      });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
+  /**
+   * 兜底复制：临时 textarea + execCommand。
+   * 注意 textarea 必须真的插入文档流里才能被选中；用 fixed + 移出屏幕避免跳动。
+   * @param {string} text 待复制文本
+   * @return {boolean} 是否成功
+   */
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', 'readonly');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    if (ta.setSelectionRange) ta.setSelectionRange(0, ta.value.length);
+    var ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {
+      ok = false;
+    }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  /** 复制号码并提示结果 */
+  function copyNumber(plain, label) {
+    if (!plain) {
+      toast('还没有配置号码');
+      return;
+    }
+    copyToClipboard(plain).then(function (ok) {
+      if (ok) {
+        toast('已复制' + (label ? '（' + label + '）' : ''));
+      } else {
+        toast('复制失败，请长按号码手动复制');
+      }
+    });
+  }
+
+  /** tel: 链接只保留数字与 +，避免运营商或含分机号的号码被错误解析 */
+  function telLink(plain) {
+    return 'tel:' + String(plain || '').replace(/[^\d+]/g, '');
+  }
+
+  /* ---------------------------------------------------------------------
+     渲染主界面
+     --------------------------------------------------------------------- */
+
+  function render() {
+    var p1 = mainPhone();
+    var p2 = backupPhone();
+    var plate = String(EC.plate || '').trim();
+
+    document.title = EC.ownerName ? (EC.ownerName + ' 的车 · 扫码呼叫挪车') : '扫码呼叫挪车';
+
+    $('greetingText').textContent = EC.greeting || '';
+    $('ownerText').textContent = EC.ownerName || '车主';
+
+    // 车牌：留空则整行隐藏（连同前面的「·」分隔符）
+    var plateEl = $('plateText');
+    if (plate) {
+      plateEl.textContent = EC.plateMasked ? U.maskPlate(plate) : plate;
+      plateEl.hidden = false;
+      $('plateSep').hidden = false;
+    } else {
+      plateEl.hidden = true;
+      $('plateSep').hidden = true;
+    }
+
+    // 承诺语：留空则隐藏
+    var noteEl = $('noteText');
+    noteEl.textContent = EC.note || '';
+    noteEl.hidden = !EC.note;
+
+    // 主按钮上的号码
+    $('callNumber').textContent = showNumber(p1);
+
+    // 显示 / 隐藏号码开关
+    var revealBtn = $('revealBtn');
+    if (p1) {
+      revealBtn.hidden = false;
+      $('revealText').textContent = showNumber(p1) + (revealed ? ' · 点击收起号码' : ' · 点击显示完整号码');
+    } else {
+      revealBtn.hidden = true;
+    }
+
+    // 复制按钮：没有号码时禁用
+    var copyBtn = $('copyBtn');
+    copyBtn.disabled = !p1;
+
+    // 备用号码区块
+    var backupBlock = $('backupBlock');
+    if (p2 && String(p2).length > 0) {
+      backupBlock.hidden = false;
+      $('backupLabel').textContent = EC.backupLabel || '备用联系人';
+      $('backupNumber').textContent = showNumber(p2);
+    } else {
+      backupBlock.hidden = true;
+    }
+  }
+
+  /**
+   * 切到「车主页」：显示车主信息各区块，并按当前 EC 渲染。
+   * 设置向导（进入 / 预览 / 恢复）都走这里，保证车主看到的是 CONFIG 的效果，
+   * 而不是被无效提示页盖住——这是「仅本机预览 / 恢复原始配置」能正常工作的关键。
+   */
+  function showOwnerPage() {
+    pageMode = 'owner';
+    $('ownerWrap').hidden = false;
+    $('invalidCard').hidden = true;
+    // 顶部引导条只对「能拨号的车主页」有意义，无效页上一并隐藏
+    $('browserTip').hidden = !isMicroMessenger;
+    render();
+  }
+
+  /**
+   * 切到「无效提示页」：隐藏全部车主区块，只显示图标 + 标题 + 文案。
+   * ⚠️ 这里绝不能渲染任何号码、拨号 / 短信 / 复制 / 备用号码等内容。
+   * 所有无效应情形都走这一个函数，页面表现完全一致。
+   */
+  function showInvalidPage() {
+    pageMode = 'invalid';
+    $('ownerWrap').hidden = true;
+    $('invalidCard').hidden = false;
+    $('browserTip').hidden = true;
+    var title = String(EC.invalidTitle || '这张挪车码无效');
+    document.title = title;
+    $('invalidTitle').textContent = title;
+    $('invalidTip').textContent = String(EC.invalidTip || '');
+  }
+
+  /* ---------------------------------------------------------------------
+     事件绑定
+     --------------------------------------------------------------------- */
+
+  function bindEvents() {
+    // 一键拨号
+    $('callBtn').addEventListener('click', function () {
+      var p1 = mainPhone();
+      if (!p1) {
+        toast('还没有配置号码');
+        return;
+      }
+      window.location.href = telLink(p1);
+    });
+
+    // 一键短信（UA 决定 iOS 用 &body=、其它用 ?body=）
+    $('smsBtn').addEventListener('click', function () {
+      var p1 = mainPhone();
+      if (!p1) {
+        toast('还没有配置号码');
+        return;
+      }
+      window.location.href = U.buildSmsLink(p1, EC.smsText, navigator.userAgent);
+    });
+
+    // 号码明文 / 打码切换
+    $('revealBtn').addEventListener('click', function () {
+      if (!revealed) {
+        revealed = true;
+        if (EC.showTipOnReveal) toast('请您在需要时再查看，感谢');
+      } else {
+        revealed = false;
+      }
+      render();
+    });
+
+    // 复制主号码
+    $('copyBtn').addEventListener('click', function () {
+      copyNumber(mainPhone(), '');
+    });
+
+    // 备用号码：拨号 + 复制
+    $('backupCallBtn').addEventListener('click', function () {
+      var p2 = backupPhone();
+      if (!p2) {
+        toast('还没有配置备用号码');
+        return;
+      }
+      window.location.href = telLink(p2);
+    });
+    $('backupCopyBtn').addEventListener('click', function () {
+      copyNumber(backupPhone(), EC.backupLabel || '备用联系人');
+    });
+
+    // 连点车牌 5 次 → 进入设置向导（隐藏彩蛋入口，扫码者不会误触）
+    $('plateText').addEventListener('click', function () {
+      // 未解锁时静默忽略：不计数、不弹任何提示，避免暴露「有这个隐藏入口」
+      if (!setupUnlocked) return;
+      plateClickCount++;
+      if (plateClickTimer) clearTimeout(plateClickTimer);
+      plateClickTimer = setTimeout(function () {
+        plateClickCount = 0;
+      }, 2000);
+      if (plateClickCount >= 5) {
+        plateClickCount = 0;
+        enterSetup(true);
+      }
+    });
+
+    // 微信内置浏览器提示条
+    $('closeTip').addEventListener('click', function () {
+      $('browserTip').hidden = true;
+    });
+
+    bindSetupEvents();
+    bindFab();
+  }
+
+  function bindFab() {
+    $('fabBack').addEventListener('click', function () {
+      enterSetup(false);
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     设置向导
+     --------------------------------------------------------------------- */
+
+  var FIELDS = ['ownerName', 'plate', 'phone', 'phoneBackup', 'backupLabel',
+                'invalidTitle', 'invalidTip', 'smsText', 'greeting', 'note'];
+
+  function fieldId(name) {
+    return 'f_' + name;
+  }
+
+  /** 表单 → 配置对象 */
+  function readForm() {
+    var obj = cloneObj(FILE_CONFIG);
+    for (var i = 0; i < FIELDS.length; i++) {
+      var name = FIELDS[i];
+      var el = $(fieldId(name));
+      if (el) obj[name] = el.value;
+    }
+    obj.plateMasked = !!$(fieldId('plateMasked')).checked;
+    obj.showTipOnReveal = !!$(fieldId('showTipOnReveal')).checked;
+    return obj;
+  }
+
+  /** 配置对象 → 表单 */
+  function fillForm(cfg) {
+    for (var i = 0; i < FIELDS.length; i++) {
+      var name = FIELDS[i];
+      var el = $(fieldId(name));
+      if (el) el.value = cfg[name] === undefined ? '' : String(cfg[name]);
+    }
+    // 表单里永远展示明文号码（车主自己看），生成代码时再自动混淆
+    $(fieldId('phone')).value = U.getPhone(cfg.phone);
+    $(fieldId('phoneBackup')).value = U.getPhone(cfg.phoneBackup);
+    $(fieldId('plateMasked')).checked = cfg.plateMasked !== false;
+    $(fieldId('showTipOnReveal')).checked = cfg.showTipOnReveal !== false;
+  }
+
+  /** 进入设置向导。fromEgg=true 表示是彩蛋/首次进入，需要提示 */
+  function enterSetup(fromEgg) {
+    // 向导背后强制显示车主页：即使这次是无 id 进来的，
+    // 也要让「预览 / 恢复 / 退出」看到的是 CONFIG 的效果，而不是无效提示页
+    showOwnerPage();
+    $('setupWrap').hidden = false;
+    $('fabBack').hidden = true;
+    fillForm(loadSaved() || EC);
+    if (fromEgg) toast('已进入设置向导，改完记得生成配置代码');
+  }
+
+  function exitSetup() {
+    $('setupWrap').hidden = true;
+    // 退出后按本次访问的路由结果回到对应页面：带有效 id 进来的回车主页；
+    // 无 id / id 无效 / 库存码（还没填号码）进来的回无效提示页（与普通访客看到的一致）
+    if (isRecordLive(activeRecord)) showOwnerPage();
+    else showInvalidPage();
+    // 退出时把地址里的 ?setup=1 去掉，避免误分享给别人
+    try {
+      if (U.parseQuery(window.location.search).setup) {
+        window.history.replaceState({}, '', U.getPageUrl(window.location.href));
+      }
+    } catch (e) {
+      /* file:// 协议下 history.replaceState 可能抛错，忽略即可 */
+    }
+  }
+
+  /** 读取 localStorage 中保存的草稿 */
+  function loadSaved() {
+    try {
+      var raw = window.localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      return (obj && typeof obj === 'object') ? obj : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveSaved(cfg) {
+    try {
+      window.localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * 生成可粘回文件的 `const CONFIG = {...}` 代码块。
+   * 主号码默认输出 `enc:` 混淆串，避免明文号码直接暴露在页面源码里。
+   * @param {Object} cfg 配置对象
+   * @return {string} 代码文本
+   */
+  function buildConfigCode(cfg) {
+    function q(v) {
+      return JSON.stringify(String(v === undefined || v === null ? '' : v));
+    }
+    var enc = '';
+    var encBackup = '';
+    try {
+      enc = U.encodePhone(U.getPhone(cfg.phone));
+      // 备用号码同样混淆，避免明文号码留在 HTML 源码里
+      encBackup = U.encodePhone(U.getPhone(cfg.phoneBackup));
+    } catch (e) {
+      enc = '';
+      encBackup = '';
+    }
+    var phoneValue = enc ? enc : String(cfg.phone || '');
+    // 备用号码为空时保持空字符串（encodePhone('') 本身就是 ''，这里只是双重保险）
+    var backupValue = cfg.phoneBackup ? (encBackup ? encBackup : String(cfg.phoneBackup)) : '';
+
+    // 注释统一用「一个空格 + //」，避免号码长度不同导致对齐错乱
+    return [
+      'const CONFIG = {',
+      '  ownerName: ' + q(cfg.ownerName) + ', // 车主称呼，展示为「xxx 的车」',
+      '  plate: ' + q(cfg.plate) + ', // 车牌号；设为 \'\' 则不显示车牌行',
+      '  plateMasked: ' + (cfg.plateMasked !== false) + ', // true=车牌中间打码（粤A·1**45），false=完整显示',
+      '  phone: ' + q(phoneValue) + ', // 已做混淆的 enc: 串，等价于明文号码',
+      '  phoneBackup: ' + q(backupValue) + ', // 备用号码（同样做了混淆），留空则隐藏该区块',
+      '  backupLabel: ' + q(cfg.backupLabel) + ', // 备用号码的文字说明，如「家属电话」',
+      '  invalidTitle: ' + q(cfg.invalidTitle) + ', // 无效提示页大标题（裸地址 / id 查不到时显示）',
+      '  invalidTip: ' + q(cfg.invalidTip) + ', // 无效提示页文案',
+      '  smsText: ' + q(cfg.smsText) + ', // 一键短信的预填文案',
+      '  greeting: ' + q(cfg.greeting) + ', // 页面顶部礼貌用语',
+      '  note: ' + q(cfg.note) + ', // 副标题/承诺语，留空则隐藏',
+      '  showTipOnReveal: ' + (cfg.showTipOnReveal !== false) + ', // 点击显示号码时，是否先弹提示',
+      '  enableSetup: ' + (cfg.enableSetup === true) + ', // false=关闭设置向导（推荐，二维码贴车上之后务必关掉）',
+      '  setupKey: ' + q('') + ' // ⚠️ 私密口令默认留空不导出；如需保留请在此手动填写，填了才能用 ?setup=1&k=口令 进入',
+      '};'
+    ].join('\n');
+  }
+
+  function bindSetupEvents() {
+    $('btnExitSetup').addEventListener('click', exitSetup);
+
+    $('btnGenCode').addEventListener('click', function () {
+      var cfg = readForm();
+      $('genCode').value = buildConfigCode(cfg);
+      // 口令不写进生成的代码，车主粘回文件后必须手动补，否则 ?setup=1&k=口令 会失效
+      if (String(FILE_CONFIG.setupKey || '') !== '') {
+        toast('已生成配置代码（私密口令未导出，如需请手动填写 setupKey）');
+      } else {
+        toast('已生成，复制后粘回文件顶部 CONFIG 区');
+      }
+    });
+
+    $('btnCopyCode').addEventListener('click', function () {
+      var code = $('genCode').value;
+      if (!code) {
+        toast('请先点「生成配置代码」');
+        return;
+      }
+      copyToClipboard(code).then(function (ok) {
+        toast(ok ? '代码已复制' : '复制失败，请手动全选复制');
+      });
+    });
+
+    $('btnSaveLocal').addEventListener('click', function () {
+      var cfg = readForm();
+      if (saveSaved(cfg)) {
+        toast('已保存到本机，下次进设置自动回填');
+      } else {
+        toast('保存失败：浏览器禁用了本地存储');
+      }
+    });
+
+    $('btnPreview').addEventListener('click', function () {
+      EC = readForm();
+      revealed = false;
+      showOwnerPage();
+      $('setupWrap').hidden = true;
+      $('fabBack').hidden = false;
+      toast('已应用到本机预览（未改动源码）');
+    });
+
+    $('btnRestore').addEventListener('click', function () {
+      try {
+        window.localStorage.removeItem(LS_KEY);
+      } catch (e) {
+        /* localStorage 不可用时忽略 */
+      }
+      // 恢复到文件时也要带上路由结果：如果这次是 ?id=xxx 进来的，
+      // 恢复之后显示的还应该是一位车主的信息，而不是默认 CONFIG
+      EC = mergeConfig(FILE_CONFIG, activeRecord);
+      revealed = false;
+      showOwnerPage();
+      fillForm(FILE_CONFIG);
+      $('fabBack').hidden = true;
+      toast('已恢复文件原始配置');
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     启动
+     --------------------------------------------------------------------- */
+
+  function init() {
+    bindEvents();
+
+    // 设置向导入口的统一判断：口令（?k=）优先于 enableSetup 开关
+    var q = U.parseQuery(window.location.search);
+    setupUnlocked = U.canEnterSetup(q, CONFIG);
+
+    // 微信内置浏览器：部分机型直接拨号会被拦截，顶部给出引导（扫码者的可用性保障，必须保留）
+    isMicroMessenger = !!(navigator.userAgent && navigator.userAgent.indexOf('MicroMessenger') > -1);
+
+    // 设置向导入口：URL 参数 ?setup=1（连点车牌 5 次是另一个隐藏入口）
+    // 只有解锁后才进，且必须是 ?setup=1；未解锁时 ?setup=1 等同普通访客。
+    // 进向导时强制切回车主页，保证预览 / 恢复看到的是 CONFIG 的效果。
+    if (setupUnlocked && q.setup === '1') {
+      enterSetup(true);
+      return;
+    }
+
+    // 路由分流：带有效 id → 车主页；没带 id / id 查不到 → 无效提示页（不含任何号码）
+    if (isRecordLive(activeRecord)) showOwnerPage();
+    else showInvalidPage();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+</body>
+</html>
